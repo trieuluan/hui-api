@@ -2,13 +2,12 @@ import Fastify from 'fastify';
 import dotenv from 'dotenv';
 const env = process.env.NODE_ENV || "development";
 dotenv.config({ path: `.env.${env}` });
-import userRoutes from './routes/users';
+import fastifyCookie from "@fastify/cookie";
 import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
-import fastifyCookie from "@fastify/cookie";
+import userRoutes from './routes/users';
 import authRoutes from "./routes/auth";
 import mongoPlugin from "./plugins/mongodb";
-import * as process from "node:process";
 
 const fastify = Fastify({
     logger: {
@@ -48,16 +47,13 @@ fastify.register(swaggerUI, {
 });
 
 // Register fastify cookie for session management
-await fastify.register(fastifyCookie, {
-    secret: process.env.COOKIE_SECRET,
-    parseOptions: {}, // options for parsing cookies
-});
+fastify.register(fastifyCookie);
 // Register MongoDB plugin
-await fastify.register(mongoPlugin);
+fastify.register(mongoPlugin);
 // Register user routes
-await fastify.register(userRoutes);
+fastify.register(userRoutes);
 // Register lucia authentication
-await fastify.register(authRoutes);
+fastify.register(authRoutes);
 
 // Start server
 const start = async () => {

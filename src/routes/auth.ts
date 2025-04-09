@@ -3,6 +3,7 @@ import {registerUserSchema} from "@/schemas/auth.schema";
 import {hashPassword, isPasswordStrong, verifyPassword} from "@/utils/password";
 import {lucia} from "@/utils/lucia";
 import {createUser, getUserCollection} from "@/models/user.model";
+import * as repl from "node:repl";
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
     const usersCollection = getUserCollection(fastify);
@@ -43,7 +44,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
         const session = await lucia.createSession(user._id?.toString() as string, {});
         const sessionCookie = lucia.createSessionCookie(session.id);
-        reply.setCookie(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
+        reply.setCookie(
+            sessionCookie.name,
+            sessionCookie.value,
+            sessionCookie.attributes
+        );
 
         reply.send({
             message: "User registered successfully",
@@ -89,10 +94,6 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             sessionCookie.attributes
         );
 
-        console.log("🔐 Cookie name:", sessionCookie.name);
-        console.log("🔐 Cookie value:", sessionCookie.value);
-        console.log("🔐 Cookie attributes:", sessionCookie.attributes);
-
         reply.send({
             message: "User login successfully",
             user: {
@@ -109,8 +110,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Lấy user từ session
     fastify.get("/me", async (req, reply) => {
-        console.log("🍪 Cookie nhận được:", req.cookies);
-        console.log("🧾 Session ID đọc từ cookie:", lucia.readSessionCookie(req.cookies[lucia.sessionCookieName] as string));
+        console.log("🔥 fastify cookies:", req.cookies);
+        console.log("🧾 session raw:", req.cookies[lucia.sessionCookieName]);
+        console.log("📦 sessionId parsed:", lucia.readSessionCookie(req.cookies[lucia.sessionCookieName] as string));
         const sessionId = lucia.readSessionCookie(req.cookies[lucia.sessionCookieName] as string);
         if (!sessionId) return reply.status(401).send({ error: "Chưa đăng nhập", ...req.cookies });
 

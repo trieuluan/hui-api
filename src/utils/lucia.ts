@@ -17,7 +17,6 @@ export const lucia = new Lucia(adapter, {
             path: "/",
             sameSite: "lax",
         },
-        expires: true,
     },
 });
 
