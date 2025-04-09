@@ -47,7 +47,14 @@ fastify.register(swaggerUI, {
 });
 
 // Register fastify cookie for session management
-fastify.register(fastifyCookie);
+fastify.register(fastifyCookie, {
+    parseOptions: {
+        path: "/",
+        sameSite: "lax",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production"
+    }
+});
 // Register MongoDB plugin
 fastify.register(mongoPlugin);
 // Register user routes

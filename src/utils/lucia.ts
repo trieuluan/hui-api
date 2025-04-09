@@ -3,6 +3,7 @@ import { MongoClient } from "mongodb";
 import {Lucia} from "lucia";
 
 const client = new MongoClient(process.env.MONGODB_URI || "mongodb://localhost:27017");
+await client.connect();
 const db = client.db("hui");
 
 const adapter = new MongodbAdapter(
@@ -17,6 +18,7 @@ export const lucia = new Lucia(adapter, {
             path: "/",
             sameSite: "lax",
         },
+        expires: true,
     },
 });
 

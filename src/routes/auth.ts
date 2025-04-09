@@ -94,6 +94,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             sessionCookie.attributes
         );
 
+        console.log("🔐 Session created:", session.id);
+        console.log("🍪 Cookie set:", sessionCookie.name, sessionCookie.value);
+
         reply.send({
             message: "User login successfully",
             user: {
@@ -110,10 +113,13 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Lấy user từ session
     fastify.get("/me", async (req, reply) => {
-        console.log("🔥 fastify cookies:", req.cookies);
-        console.log("🧾 session raw:", req.cookies[lucia.sessionCookieName]);
-        console.log("📦 sessionId parsed:", lucia.readSessionCookie(req.cookies[lucia.sessionCookieName] as string));
-        const sessionId = lucia.readSessionCookie(req.cookies[lucia.sessionCookieName] as string);
+        console.log("🔥 cookies from client:", req.cookies);
+
+        const raw = req.cookies[ lucia.sessionCookieName ];
+        console.log("🧾 raw session:", raw);
+
+        const sessionId = lucia.readSessionCookie(raw as string);
+        console.log("📦 parsed sessionId:", sessionId);
         if (!sessionId) return reply.status(401).send({ error: "Chưa đăng nhập", ...req.cookies });
 
         const { session, user } = await lucia.validateSession(sessionId);
