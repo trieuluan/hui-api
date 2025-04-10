@@ -21,7 +21,9 @@
     "dotenv": "^16.4.7",
     "fastify": "^5.2.2",
     "fastify-mongodb": "^4.1.1",
+    "libphonenumber-js": "^1.12.6",
     "lucia": "^3.2.2",
+    "mongodb": "^6.15.0",
     "pino-pretty": "^13.0.0",
     "zxcvbn": "^4.4.2"
   },

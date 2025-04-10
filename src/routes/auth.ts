@@ -3,14 +3,21 @@ import {registerUserSchema} from "@/schemas/auth.schema";
 import {hashPassword, isPasswordStrong, verifyPassword} from "@/utils/password";
 import {lucia} from "@/utils/lucia";
 import {createUser, getUserCollection} from "@/models/user.model";
-import * as repl from "node:repl";
+import {authMiddleware} from "@/middlewares/authMiddleware";
+import {unAuthMiddleware} from "@/middlewares/unAuthMiddleware";
+import {parseEmailOrPhone} from "@/utils/parseEmailOrPhone";
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
     const usersCollection = getUserCollection(fastify);
     fastify.post('/register', {
-        schema: registerUserSchema
+        schema: registerUserSchema,
+        preHandler: unAuthMiddleware
     }, async (request, reply) => {
-        const { email, password, retypePassword, fullName } = request.body as any;
+        const { emailOrPhone, password, retypePassword, fullName } = request.body as any;
+        const parsed = parseEmailOrPhone(emailOrPhone);
+        if (parsed.type === "invalid") {
+            return reply.status(400).send({ message: "Invalid email or phone number" });
+        }
         // Validate password
         if (password !== retypePassword) {
             return reply.status(400).send({ message: "Passwords do not match" });
@@ -24,23 +31,32 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
                 suggestions: passwordValidation.feedback.suggestions,
             });
         }
+        const query = parsed.type === "email" ? { email: parsed.value } : { phone: parsed.value };
 
-        const existingUser = await usersCollection.findOne({ email });
+        const existingUser = await usersCollection.findOne({ query });
         if (existingUser) {
-            return reply.status(400).send({ error: "Email đã tồn tại" });
+            return reply.status(400).send({ error: "User đã tồn tại" });
         }
 
         const hashedPassword = await hashPassword(password);
 
-        const user = await createUser(fastify, {
-            email,
+        const paramsUser: any = {
             password_hash: hashedPassword,
             full_name: fullName,
             role: 'chuhui', // Default role
             kyc: {
                 status: 'pending', // Default KYC status
             }
-        });
+        }
+
+        // Create the user
+        if (parsed.type === "email") {
+            paramsUser.email = parsed.value;
+        }
+        if (parsed.type === "phone") {
+            paramsUser.phone = parsed.value;
+        }
+        const user = await createUser(fastify, paramsUser);
 
         const session = await lucia.createSession(user._id?.toString() as string, {});
         const sessionCookie = lucia.createSessionCookie(session.id);
@@ -94,9 +110,6 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             sessionCookie.attributes
         );
 
-        console.log("🔐 Session created:", session.id);
-        console.log("🍪 Cookie set:", sessionCookie.name, sessionCookie.value);
-
         reply.send({
             message: "User login successfully",
             user: {
@@ -112,20 +125,33 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     // Lấy user từ session
-    fastify.get("/me", async (req, reply) => {
-        console.log("🔥 cookies from client:", req.cookies);
+    fastify.get("/me", {
+        preHandler: authMiddleware
+    }, async (req, reply) => {
+        return reply.send({ user: req.auth.user });
+    });
 
-        const raw = req.cookies[ lucia.sessionCookieName ];
-        console.log("🧾 raw session:", raw);
+    // Logout
+    fastify.post("/logout", {
+        preHandler: authMiddleware
+    }, async (req, reply) => {
+        const sessionId = lucia.readSessionCookie(req.headers.cookie ?? "");
+        if (!sessionId) {
+            reply.status(204).send();
+            return;
+        }
 
-        const sessionId = lucia.readSessionCookie(raw as string);
-        console.log("📦 parsed sessionId:", sessionId);
-        if (!sessionId) return reply.status(401).send({ error: "Chưa đăng nhập", ...req.cookies });
+        await lucia.invalidateSession(sessionId);
+        const sessionCookie = lucia.createBlankSessionCookie();
 
-        const { session, user } = await lucia.validateSession(sessionId);
-        if (!session) return reply.status(401).send({ error: "Session không hợp lệ" });
-
-        return reply.send({ user });
+        return reply
+            .setCookie(
+                sessionCookie.name,
+                sessionCookie.value,
+                sessionCookie.attributes
+            )
+            .status(200)
+            .send({ message: "Logged out successfully" });
     });
 };
 

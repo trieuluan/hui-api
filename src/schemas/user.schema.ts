@@ -1,6 +1,6 @@
 export const userBodySchema = {
     type: 'object',
-    required: ['email', 'full_name', 'password_hash', 'role'],
+    required: ['full_name', 'password_hash', 'role'],
     properties: {
         _id: { type: 'string', pattern: '^[a-fA-F0-9]{24}$' },
         full_name: { type: 'string', minLength: 1 },

@@ -1,17 +1,17 @@
-import { Db } from "mongodb";
-import {Adapter, DatabaseSession, DatabaseUser} from "lucia";
+import type { Adapter, DatabaseUser, DatabaseSession } from "lucia";
+import { Collection, ObjectId } from "mongodb";
 
-export const MongoAdapter = (db: Db): Adapter => {
-    const userCollection = db.collection("users");
-    const sessionCollection = db.collection("sessions");
-
+export const CustomMongodbAdapter = (
+    userCollection: Collection,
+    sessionCollection: Collection<DatabaseSession>
+): Adapter => {
     return {
         async getSessionAndUser(sessionId): Promise<[session: DatabaseSession | null, user: DatabaseUser | null]> {
-            const session = await sessionCollection.findOne({ _id: sessionId });
+            const session = await sessionCollection.findOne({ id: sessionId });
             if (!session) return [null, null];
-
-            const user = await userCollection.findOne({ _id: session.userId });
+            const user = await userCollection.findOne({ _id: new ObjectId(session.userId) });
             if (!user) return [null, null];
+            const { _id, ...userData } = user;
 
             return [
                 {
@@ -22,14 +22,14 @@ export const MongoAdapter = (db: Db): Adapter => {
                 },
                 {
                     id: user._id.toString(),
-                    attributes: user.attributes || {}
+                    attributes: userData || {}
                 }
             ];
         },
         async getUserSessions(userId): Promise<DatabaseSession[]> {
             const sessions = await sessionCollection.find({ userId }).toArray();
             return sessions.map((session) => ({
-                id: session._id,
+                id: session.id,
                 userId: session.userId,
                 expiresAt: session.expiresAt,
                 attributes: session.attributes || {}
@@ -37,7 +37,7 @@ export const MongoAdapter = (db: Db): Adapter => {
         },
         async setSession(session) {
             await sessionCollection.insertOne({
-                _id: session.id as any,
+                id: session.id,
                 userId: session.userId,
                 expiresAt: session.expiresAt,
                 attributes: session.attributes || {}
@@ -45,12 +45,12 @@ export const MongoAdapter = (db: Db): Adapter => {
         },
         async updateSessionExpiration(sessionId, expiresAt) {
             await sessionCollection.updateOne(
-                { _id: sessionId },
+                { id: sessionId },
                 { $set: { expiresAt } }
             );
         },
         async deleteSession(sessionId) {
-            await sessionCollection.deleteOne({ _id: sessionId });
+            await sessionCollection.deleteOne({ id: sessionId });
         },
         async deleteUserSessions(userId) {
             await sessionCollection.deleteMany({ userId });

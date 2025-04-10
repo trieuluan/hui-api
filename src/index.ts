@@ -8,6 +8,9 @@ import swaggerUI from '@fastify/swagger-ui';
 import userRoutes from './routes/users';
 import authRoutes from "./routes/auth";
 import mongoPlugin from "./plugins/mongodb";
+import {lucia} from "@/utils/lucia";
+import {Session, User} from "lucia";
+import friendshipRoutes from "@/routes/friendships";
 
 const fastify = Fastify({
     logger: {
@@ -47,20 +50,33 @@ fastify.register(swaggerUI, {
 });
 
 // Register fastify cookie for session management
-fastify.register(fastifyCookie, {
-    parseOptions: {
-        path: "/",
-        sameSite: "lax",
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production"
+fastify.register(fastifyCookie);
+fastify.addHook("preHandler", async (request) => {
+    const sessionId = lucia.readSessionCookie(request.headers.cookie ?? "");
+    if (!sessionId) {
+        request.auth = { user: null, session: null };
+        return;
     }
+
+    const { user, session } = await lucia.validateSession(sessionId);
+    request.auth = { user, session };
 });
+declare module "fastify" {
+    interface FastifyRequest {
+        auth: {
+            user: User | null;
+            session: Session | null;
+        };
+    }
+}
 // Register MongoDB plugin
 fastify.register(mongoPlugin);
 // Register user routes
 fastify.register(userRoutes);
 // Register lucia authentication
 fastify.register(authRoutes);
+// Register friendship routes
+fastify.register(friendshipRoutes);
 
 // Start server
 const start = async () => {

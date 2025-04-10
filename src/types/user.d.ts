@@ -25,7 +25,7 @@ export interface UserKYC {
 export interface User {
     _id?: ObjectId | undefined; // MongoDB ObjectId as string
     full_name: string;
-    email: string;
+    email?: string;
     phone?: string;
     password_hash: string;
     role: UserRole;
