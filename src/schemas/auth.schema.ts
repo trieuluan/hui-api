@@ -15,3 +15,14 @@ export const registerUserSchema = {
         }
     }
 };
+
+export const ChangePasswordUserBodySchema = {
+    type: 'object',
+    properties: {
+        oldPassword: { type: 'string', minLength: 6 },
+        newPassword: { type: 'string', minLength: 6 },
+        retypeNewPassword: { type: 'string', minLength: 6 }
+    },
+    required: ['oldPassword', 'newPassword', 'retypeNewPassword'],
+    additionalProperties: false,
+}

@@ -1,8 +1,8 @@
 import {FastifyPluginAsync} from "fastify";
-import {registerUserSchema} from "@/schemas/auth.schema";
+import {ChangePasswordUserBodySchema, registerUserSchema} from "@/schemas/auth.schema";
 import {hashPassword, isPasswordStrong, verifyPassword} from "@/utils/password";
 import {lucia} from "@/utils/lucia";
-import {createUser, getUserCollection} from "@/models/user.model";
+import {createUser, getUserById, getUserCollection, updateUser} from "@/models/user.model";
 import {authMiddleware} from "@/middlewares/authMiddleware";
 import {unAuthMiddleware} from "@/middlewares/unAuthMiddleware";
 import {parseEmailOrPhone} from "@/utils/parseEmailOrPhone";
@@ -24,7 +24,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         const passwordValidation = isPasswordStrong(password);
-        if (passwordValidation.score < 2) {
+        if (passwordValidation.score < 3) {
             return reply.code(400).send({
                 error: "Password is too weak",
                 warning: passwordValidation.feedback.warning,
@@ -153,6 +153,47 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             .status(200)
             .send({ message: "Logged out successfully" });
     });
+
+    fastify.post("/change-password", {
+        preHandler: authMiddleware,
+        schema: {
+            body: ChangePasswordUserBodySchema
+        }
+    }, async (req, reply) => {
+        const { oldPassword, newPassword, retypeNewPassword } = req.body as any;
+        const userId = req.auth.user?.id;
+        const user = await getUserById(fastify, userId as string);
+        if (!user) {
+            return reply.status(404).send({ error: "User not found" });
+        }
+
+        const match = await verifyPassword(oldPassword, user.password_hash);
+        if (!match) {
+            return reply.status(401).send({ error: "Mật khẩu cũ không đúng" });
+        }
+
+        if (oldPassword === newPassword) {
+            return reply.status(400).send({ error: "Mật khẩu mới không được giống mật khẩu cũ" });
+        }
+
+        if (newPassword !== retypeNewPassword) {
+            return reply.status(400).send({ error: "Mật khẩu mới không khớp" });
+        }
+        const passwordValidation = isPasswordStrong(newPassword);
+        console.log(passwordValidation);
+        if (passwordValidation.score < 3) {
+            return reply.code(400).send({
+                error: "Mật khẩu mới quá yếu",
+                warning: passwordValidation.feedback.warning,
+                suggestions: passwordValidation.feedback.suggestions,
+            });
+        }
+
+        user.password_hash = await hashPassword(newPassword);
+        await updateUser(fastify, user);
+
+        return reply.send({ message: "Mật khẩu đã được thay đổi thành công" });
+    })
 };
 
 export default authRoutes;

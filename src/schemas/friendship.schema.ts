@@ -8,7 +8,8 @@ export const friendshipResponseSchema = {
         type: { type: 'string', enum: ['friend', 'block'] },
         created_at: { type: 'string', format: 'date-time' },
         updated_at: { type: 'string', format: 'date-time' },
-        recipient_info: {
+        friendId: { type: 'string' },
+        friend: {
             type: 'object',
             properties: {
                 _id: { type: 'string' },
@@ -43,11 +44,11 @@ export const friendshipRequestBodySchema = {
     additionalProperties: false,
 }
 
-export const friendshipAcceptBodySchema = {
+export const friendshipACDBodySchema = {
     type: 'object',
-    required: ['requestId'],
+    required: ['friendshipId'],
     properties: {
-        requestId: { type: 'string' },
+        friendshipId: { type: 'string' },
     },
     additionalProperties: false,
 }
