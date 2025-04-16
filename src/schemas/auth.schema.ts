@@ -27,9 +27,7 @@ export const loginBodySchema = z.object({
     emailOrPhone: z.union([
         z.string().email('Email hoặc số điện thoại không hợp lệ'),
         z.string().regex(/^\+?[1-9]\d{1,14}$/, 'Email hoặc số điện thoại không hợp lệ')
-    ]).superRefine(async (data, ctx) => {
-
-    }),
+    ]),
     password: z.string().min(6, "Mật khẩu không được để trống")
 }).strict();
 
