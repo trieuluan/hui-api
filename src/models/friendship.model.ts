@@ -1,105 +1,116 @@
 import {FastifyInstance} from "fastify";
 import {Friendship} from "@/types/friendships";
-import {ObjectId} from "fastify-mongodb";
-import {Filter} from "mongodb";
+import {Filter, ObjectId} from "mongodb";
 
-export async function getFriendshipsList(fastify: FastifyInstance, userId: string) {
-    return await fastify.mongo.db!.collection('friendships').aggregate([
-        {
-            $match: {
-                $or: [
-                    { requester: new ObjectId(userId) },
-                    { recipient: new ObjectId(userId) }
-                ]
-            }
-        },
-        {
-            $addFields: {
-                friendId: {
-                    $cond: {
-                        if: { $eq: ["$requester", new ObjectId(userId)] },
-                        then: "$recipient",
-                        else: "$requester"
+export class FriendshipModel {
+    private fi: FastifyInstance;
+
+    constructor(fi: FastifyInstance) {
+        this.fi = fi;
+    }
+
+    private collection() {
+        return this.fi.mongo.db!.collection("friendships");
+    }
+
+    list = async (userId: string) => {
+        return await this.collection().aggregate([
+            {
+                $match: {
+                    $or: [
+                        { requester: new ObjectId(userId) },
+                        { recipient: new ObjectId(userId) }
+                    ]
+                }
+            },
+            {
+                $addFields: {
+                    friendId: {
+                        $cond: {
+                            if: { $eq: ["$requester", new ObjectId(userId)] },
+                            then: "$recipient",
+                            else: "$requester"
+                        }
                     }
                 }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'friendId',
+                    foreignField: '_id',
+                    as: 'friend'
+                }
+            },
+            {
+                $unwind: "$friend"
+            },
+            {
+                $project: {
+                    status: 1,
+                    type: 1,
+                    _id: 0,
+                    friendId: 1,
+                    friend: {
+                        _id: "$friend._id",
+                        full_name: "$friend.full_name",
+                        email: "$friend.email",
+                        avatar_url: "$friend.avatar_url"
+                    },
+                }
             }
-        },
-        {
-            $lookup: {
-                from: 'users',
-                localField: 'friendId',
-                foreignField: '_id',
-                as: 'friend'
-            }
-        },
-        {
-            $unwind: "$friend"
-        },
-        {
-            $project: {
-                status: 1,
-                type: 1,
-                _id: 0,
-                friendId: 1,
-                friend: {
-                    _id: "$friend._id",
-                    full_name: "$friend.full_name",
-                    email: "$friend.email",
-                    avatar_url: "$friend.avatar_url"
-                },
-            }
-        }
-    ]).toArray();
-}
-
-export async function findOneFriendshipByQuery (fastify: FastifyInstance, filter: Filter<any>) {
-    const friendship = await fastify.mongo.db!.collection('friendships').findOne(filter);
-    if (!friendship) {
-        throw new Error("Friendship request not found");
+        ]).toArray()
     }
-    return friendship;
-}
 
-export async function findFriendshipRequest(fastify: FastifyInstance, userId: string, friendId: string): Promise<Friendship | null> {
-    return await fastify.mongo.db!.collection('friendships').findOne(
-        {
+    request = async (userId: string, friendId: string): Promise<Friendship> => {
+        const friendship: Friendship = {
+            requester: new ObjectId(userId),
+            recipient: new ObjectId(friendId),
+            status: "pending",
+            type: 'friend',
+            created_at: new Date(),
+        };
+        const result = await this.collection().insertOne(friendship);
+        return { _id: result.insertedId, ...friendship };
+    }
+
+    findRequest = async (userId: string, friendId: string): Promise<Friendship | null> => {
+        return await this.collection().findOne({
             $or: [
                 { requester: new ObjectId(userId), recipient: new ObjectId(friendId) },
                 { requester: new ObjectId(friendId), recipient: new ObjectId(userId) }
             ]
+        }) as Friendship;
+    }
+
+    acceptRequest = async (friendshipId: string) => {
+        const result = await this.collection().updateOne(
+            { _id: new ObjectId(friendshipId), status: 'pending' },
+            { $set: { status: 'accepted' } }
+        );
+        if (result.modifiedCount === 0) {
+            throw new Error("Friendship request not found or already accepted");
         }
-    ) as Friendship;
-}
+    }
 
-export async function friendshipRequest(fastify: FastifyInstance, userId: string, friendId: string): Promise<Friendship> {
-    const friendship: Friendship = {
-        requester: new ObjectId(userId),
-        recipient: new ObjectId(friendId),
-        status: "pending",
-        type: 'friend',
-        created_at: new Date(),
-    };
-    const result = await fastify.mongo.db!.collection('friendships').insertOne(friendship);
-    return { _id: result.insertedId, ...friendship };
-}
+    deleteRequest = async (friendshipId: string) => {
+        const result = await this.collection().deleteOne({ _id: new ObjectId(friendshipId) });
+        if (result.deletedCount === 0) {
+            throw new Error("Friendship request not found");
+        }
+    }
 
-export async function acceptFriendshipRequest(fastify: FastifyInstance, friendshipId: string) {
-    const result = await fastify.mongo.db!.collection('friendships').updateOne(
-        { _id: new ObjectId(friendshipId), status: 'pending' },
-        { $set: { status: 'accepted' } }
-    );
-    if (result.modifiedCount === 0) {
-        throw new Error("Friendship request not found or already accepted");
+    findOneByQuery = async (filter: Filter<any>) => {
+        const friendship = await this.collection().findOne(filter);
+        if (!friendship) {
+            throw new Error("Friendship request not found");
+        }
+        return friendship;
     }
 }
 
-export async function deleteFriendshipRequest(fastify: FastifyInstance, friendshipId: string) {
-    const result = await fastify.mongo.db!.collection('friendships').deleteOne({ _id: new ObjectId(friendshipId) });
-    if (result.deletedCount === 0) {
-        throw new Error("Friendship request not found");
+declare module 'fastify' {
+    interface FastifyInstance {
+        friendshipModel: FriendshipModel;
     }
-}
-
-export async function getFriendshipCollection(fastify: FastifyInstance) {
-    return fastify.mongo.db!.collection("friendships");
 }

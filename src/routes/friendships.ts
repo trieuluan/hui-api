@@ -5,15 +5,7 @@ import {
     friendshipRequestBodySchema,
     ListFriendshipResponseSchema
 } from "@/schemas/friendship.schema";
-import {
-    acceptFriendshipRequest,
-    deleteFriendshipRequest,
-    findFriendshipRequest,
-    friendshipRequest,
-    getFriendshipsList,
-    findOneFriendshipByQuery
-} from "@/models/friendship.model";
-import {ObjectId} from "fastify-mongodb";
+import {ObjectId} from "mongodb";
 
 const friendshipRoutes: FastifyPluginAsync = async (fastify) => {
     // Middleware to check authentication
@@ -29,9 +21,10 @@ const friendshipRoutes: FastifyPluginAsync = async (fastify) => {
     }, async (request, reply) => {
         try {
             const userId = request.auth.user?.id;
-            const friendships = await getFriendshipsList(fastify, userId as string);
+            const friendships = await fastify.friendshipModel.list(userId as string);
             reply.status(200).send({ friendships });
         } catch (error) {
+            console.log(error);
             reply.status(500).send({ error: 'Failed to fetch friendships' });
         }
     });
@@ -48,7 +41,7 @@ const friendshipRoutes: FastifyPluginAsync = async (fastify) => {
         if (friendId === userId) {
             return reply.status(400).send({ message: 'Bạn không thể kết bạn với chính mình.' });
         }
-        const friendshipExists = await findFriendshipRequest(fastify, userId as string, friendId);
+        const friendshipExists = await fastify.friendshipModel.findRequest(userId as string, friendId);
         if (friendshipExists) {
             if (friendshipExists.status === 'pending') {
                 const message = friendshipExists.requester.toString() === userId ? 'Bạn đã gửi lời mời kết bạn rồi.' : 'Người dùng đã gửi lời mời kết bạn cho bạn.';
@@ -57,7 +50,7 @@ const friendshipRoutes: FastifyPluginAsync = async (fastify) => {
                 return reply.status(400).send({ message: 'Bạn đã là bạn bè rồi.' });
             }
         }
-        const friendRequest = await friendshipRequest(fastify, userId as string, friendId);
+        const friendRequest = await fastify.friendshipModel.request(userId as string, friendId);
         reply.status(200).send(friendRequest);
     });
 
@@ -70,11 +63,9 @@ const friendshipRoutes: FastifyPluginAsync = async (fastify) => {
     }, async (request, reply) => {
         const { friendshipId } = request.body as any;
         const userId = request.auth.user?.id;
-        const requestInDb = await findOneFriendshipByQuery(fastify, {
-            $and: [
-                {_id: new ObjectId(friendshipId)},
-                {status: 'pending'}
-            ]
+        const requestInDb = await fastify.friendshipModel.findOneByQuery({
+            _id: new ObjectId(friendshipId),
+            status: 'pending'
         });
         if (!requestInDb) {
             return reply.status(404).send({ error: 'Friend request not found' });
@@ -85,7 +76,7 @@ const friendshipRoutes: FastifyPluginAsync = async (fastify) => {
 
         // Implement the logic to accept a friendship request
         // Example: await acceptFriendshipRequest(fastify, userId as string, friendId);
-        await acceptFriendshipRequest(fastify, friendshipId);
+        await fastify.friendshipModel.acceptRequest(friendshipId);
         reply.status(200).send({ message: 'Đã chấp nhận lời mời kết bạn.' });
     });
 
@@ -94,11 +85,9 @@ const friendshipRoutes: FastifyPluginAsync = async (fastify) => {
         const { friendshipId } = request.body as any;
         const userId = request.auth.user?.id;
 
-        const requestInDb = await findOneFriendshipByQuery(fastify, {
-            $and: [
-                {_id: new ObjectId(friendshipId)},
-                {status: 'pending'}
-            ]
+        const requestInDb = await fastify.friendshipModel.findOneByQuery({
+            _id: new ObjectId(friendshipId),
+            status: 'pending'
         });
         if (!requestInDb) {
             return reply.status(404).send({ error: 'Friend request not found' });
@@ -114,7 +103,7 @@ const friendshipRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         // Implement the logic to cancel a friendship request
-        await deleteFriendshipRequest(fastify, friendshipId);
+        await fastify.friendshipModel.deleteRequest(friendshipId);
         reply.status(200).send({ message: 'Hủy Lời mời kết bạn thành công.' });
     };
 
@@ -151,7 +140,7 @@ const friendshipRoutes: FastifyPluginAsync = async (fastify) => {
 
         // Implement the logic to remove a friendship
         // Example: await removeFriendship(fastify, userId as string, friendId);
-        await deleteFriendshipRequest(fastify, friendshipId);
+        await fastify.friendshipModel.deleteRequest(friendshipId);
         reply.status(200).send({ message: 'Đã xoá kết bạn.' });
     });
 }

@@ -1,16 +1,21 @@
 import Fastify from 'fastify';
 import dotenv from 'dotenv';
-const env = process.env.NODE_ENV || "development";
-dotenv.config({ path: `.env.${env}` });
 import fastifyCookie from "@fastify/cookie";
-import swagger from '@fastify/swagger';
-import swaggerUI from '@fastify/swagger-ui';
 import userRoutes from './routes/users';
 import authRoutes from "./routes/auth";
 import mongoPlugin from "./plugins/mongodb";
 import {lucia} from "@/utils/lucia";
 import {Session, User} from "lucia";
 import friendshipRoutes from "@/routes/friendships";
+import swagger from "@fastify/swagger";
+import swaggerUI from '@fastify/swagger-ui';
+import {jsonSchemaTransform, serializerCompiler, validatorCompiler,} from 'fastify-type-provider-zod';
+import {z} from "zod";
+import {patchSchemaDates} from "@/utils/zodSwaggerPatch";
+import {registerZodErrorHandler} from "@/plugins/errorHandler";
+
+const env = process.env.NODE_ENV || "development";
+dotenv.config({ path: `.env.${env}` });
 
 const fastify = Fastify({
     logger: {
@@ -23,20 +28,27 @@ const fastify = Fastify({
         }
     },
 });
+registerZodErrorHandler(fastify);
+
+fastify.setValidatorCompiler(validatorCompiler);
+fastify.setSerializerCompiler(serializerCompiler);
+
 
 // Register Swagger for API documentation
 fastify.register(swagger, {
-    swagger: {
+    openapi: {
         info: {
-            title: 'Fastify API',
-            description: 'REST API with Fastify + MongoDB',
+            title: 'Hụi API',
+            description: 'API quản lý hụi - Fastify + Zod',
             version: '1.0.0'
         },
-        host: `localhost:${process.env.PORT || 3000}`,
-        schemes: ['http'],
-        consumes: ['application/json'],
-        produces: ['application/json']
-    }
+    },
+    transform: ({schema, url}) => {
+        if (schema?.body instanceof z.ZodType || (schema?.response && (schema.response as Record<string, unknown>)['200'] instanceof z.ZodType)) {
+            return patchSchemaDates(jsonSchemaTransform({schema, url}));
+        }
+        return { schema, url };
+    },
 });
 
 fastify.register(swaggerUI, {

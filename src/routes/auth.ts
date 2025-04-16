@@ -1,17 +1,26 @@
 import {FastifyPluginAsync} from "fastify";
-import {ChangePasswordUserBodySchema, registerUserSchema} from "@/schemas/auth.schema";
+import {
+    changePasswordUserBodySchema,
+    loginBodySchema,
+    registerUserBodySchema,
+    registerUserResponseSchema
+} from "@/schemas/auth.schema";
 import {hashPassword, isPasswordStrong, verifyPassword} from "@/utils/password";
 import {lucia} from "@/utils/lucia";
-import {createUser, getUserById, getUserCollection, updateUser} from "@/models/user.model";
 import {authMiddleware} from "@/middlewares/authMiddleware";
 import {unAuthMiddleware} from "@/middlewares/unAuthMiddleware";
 import {parseEmailOrPhone} from "@/utils/parseEmailOrPhone";
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
-    const usersCollection = getUserCollection(fastify);
+    const userModel = fastify.userModel;
     fastify.post('/register', {
-        schema: registerUserSchema,
-        preHandler: unAuthMiddleware
+        schema: {
+            body: registerUserBodySchema,
+            response: {
+                200: registerUserResponseSchema
+            }
+        },
+        preHandler: unAuthMiddleware,
     }, async (request, reply) => {
         const { emailOrPhone, password, retypePassword, fullName } = request.body as any;
         const parsed = parseEmailOrPhone(emailOrPhone);
@@ -31,9 +40,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
                 suggestions: passwordValidation.feedback.suggestions,
             });
         }
-        const query = parsed.type === "email" ? { email: parsed.value } : { phone: parsed.value };
 
-        const existingUser = await usersCollection.findOne({ query });
+        const existingUser = await userModel.existsByEmailOrPhone(parsed.value);
         if (existingUser) {
             return reply.status(400).send({ error: "User đã tồn tại" });
         }
@@ -56,7 +64,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         if (parsed.type === "phone") {
             paramsUser.phone = parsed.value;
         }
-        const user = await createUser(fastify, paramsUser);
+        const user = await fastify.userModel.createUser(paramsUser);
 
         const session = await lucia.createSession(user._id?.toString() as string, {});
         const sessionCookie = lucia.createSessionCookie(session.id);
@@ -71,6 +79,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             user: {
                 _id: user._id,
                 email: user.email,
+                phone: user.phone,
                 full_name: user.full_name,
                 role: user.role,
                 created_at: user.created_at,
@@ -82,24 +91,17 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     fastify.post('/login', {
         schema: {
-            body: {
-                type: 'object',
-                properties: {
-                    email: { type: 'string', format: 'email' },
-                    password: { type: 'string', minLength: 6 }
-                },
-                required: ['email', 'password']
-            }
-        }
+            body: loginBodySchema
+        },
     }, async (request, reply) => {
-        const { email, password } = request.body as any;
-        const user = await usersCollection.findOne({ email });
+        const { emailOrPhone, password } = request.body as any;
+        const user = await userModel.existsByEmailOrPhone(emailOrPhone);
         if (!user) {
-            return reply.status(401).send({ error: "Email hoặc mật khẩu không đúng" });
+            return reply.status(401).send({ error: "User không tồn tại." });
         }
         const match = await verifyPassword(password, user.password_hash);
         if (!match) {
-            return reply.status(401).send({ error: "Email hoặc mật khẩu không đúng" });
+            return reply.status(401).send({ error: "Mật khẩu không đúng." });
         }
         const session = await lucia.createSession(user._id.toString(), {});
         const sessionCookie = lucia.createSessionCookie(session.id);
@@ -157,12 +159,12 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.post("/change-password", {
         preHandler: authMiddleware,
         schema: {
-            body: ChangePasswordUserBodySchema
+            body: changePasswordUserBodySchema
         }
     }, async (req, reply) => {
         const { oldPassword, newPassword, retypeNewPassword } = req.body as any;
         const userId = req.auth.user?.id;
-        const user = await getUserById(fastify, userId as string);
+        const user = await fastify.userModel.findById(userId as string);
         if (!user) {
             return reply.status(404).send({ error: "User not found" });
         }
@@ -190,7 +192,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         user.password_hash = await hashPassword(newPassword);
-        await updateUser(fastify, user);
+        await fastify.userModel.updateById(user._id, user);
 
         return reply.send({ message: "Mật khẩu đã được thay đổi thành công" });
     })
