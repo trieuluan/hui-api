@@ -20,7 +20,7 @@ const friendshipRoutes: FastifyPluginAsync = async (fastify) => {
         }
     }, async (request, reply) => {
         try {
-            const userId = request.auth.user?.id;
+            const userId = request.auth.user?.id || (request.user as any)!.id;
             const friendships = await fastify.friendshipModel.list(userId as string);
             reply.status(200).send({ friendships });
         } catch (error) {
@@ -37,7 +37,7 @@ const friendshipRoutes: FastifyPluginAsync = async (fastify) => {
         }
     }, async (request, reply) => {
         const { friendId } = request.body as any;
-        const userId = request.auth.user?.id;
+        const userId = request.auth.user?.id || (request.user as any)!.id;
         if (friendId === userId) {
             return reply.status(400).send({ message: 'Bạn không thể kết bạn với chính mình.' });
         }
@@ -62,7 +62,7 @@ const friendshipRoutes: FastifyPluginAsync = async (fastify) => {
         }
     }, async (request, reply) => {
         const { friendshipId } = request.body as any;
-        const userId = request.auth.user?.id;
+        const userId = request.auth.user?.id || (request.user as any)!.id;
         const requestInDb = await fastify.friendshipModel.findOneByQuery({
             _id: new ObjectId(friendshipId),
             status: 'pending'
@@ -83,7 +83,7 @@ const friendshipRoutes: FastifyPluginAsync = async (fastify) => {
     const handleCancelOrDecline = async (request: FastifyRequest, reply: FastifyReply) => {
         const action = request.routeOptions.url?.split('/').pop() || 'unknown';
         const { friendshipId } = request.body as any;
-        const userId = request.auth.user?.id;
+        const userId = request.auth.user?.id || (request.user as any)!.id;
 
         const requestInDb = await fastify.friendshipModel.findOneByQuery({
             _id: new ObjectId(friendshipId),

@@ -1,10 +1,8 @@
 import { z } from "zod";
+import {ObjectId} from "mongodb";
 
-export const userBodySchema = z.object({
-    _id: z
-        .string()
-        .regex(/^[a-fA-F0-9]{24}$/, "_id phải là ObjectId hợp lệ")
-        .optional(),
+export const userSchema = z.object({
+    _id: z.instanceof(ObjectId).optional(),
     full_name: z.string().min(1, "Tên không được để trống"),
     email: z.string().email().optional(),
     phone: z
@@ -35,5 +33,12 @@ export const userBodySchema = z.object({
     updated_at: z.string().datetime().optional(),
 }).strict(); // Gốc cũng chặn additionalProperties
 
+export const userCreateSchema = userSchema.omit({
+    _id: true,
+    created_at: true,
+    updated_at: true,
+}).strict();
+
 // 👇 optional: tạo type cho schema này luôn
-export type UserBody = z.infer<typeof userBodySchema>;
+export type User = z.infer<typeof userSchema>;
+export type UserCreate = z.infer<typeof userCreateSchema>;

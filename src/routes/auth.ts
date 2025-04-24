@@ -73,6 +73,13 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             sessionCookie.value,
             sessionCookie.attributes
         );
+        const token = fastify.jwt.sign({
+            id: user._id,
+            email: user.email,
+            phone: user.phone,
+            full_name: user.full_name,
+            role: user.role,
+        });
 
         reply.send({
             message: "User registered successfully",
@@ -85,7 +92,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
                 created_at: user.created_at,
                 updated_at: user.updated_at,
             },
-            session_id: session.id
+            session_id: session.id,
+            token: token,
         });
     });
 
@@ -103,7 +111,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         if (!match) {
             return reply.status(401).send({ error: "Mật khẩu không đúng." });
         }
-        const session = await lucia.createSession(user._id.toString(), {});
+        const session = await lucia.createSession(user._id!.toString(), {});
         const sessionCookie = lucia.createSessionCookie(session.id);
 
         reply.setCookie(
@@ -111,6 +119,14 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             sessionCookie.value,
             sessionCookie.attributes
         );
+
+        const token = fastify.jwt.sign({
+            id: user._id,
+            email: user.email,
+            phone: user.phone,
+            full_name: user.full_name,
+            role: user.role,
+        });
 
         reply.send({
             message: "User login successfully",
@@ -122,20 +138,21 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
                 created_at: user.created_at,
                 updated_at: user.updated_at,
             },
-            session_id: sessionCookie.value
+            session_id: sessionCookie.value,
+            token
         });
     });
 
     // Lấy user từ session
     fastify.get("/me", {
-        preHandler: authMiddleware
+        preHandler: [authMiddleware]
     }, async (req, reply) => {
-        return reply.send({ user: req.auth.user });
+        return reply.send({ user: req.auth.user || req.user });
     });
 
     // Logout
     fastify.post("/logout", {
-        preHandler: authMiddleware
+        preHandler: [authMiddleware]
     }, async (req, reply) => {
         const sessionId = lucia.readSessionCookie(req.headers.cookie ?? "");
         if (!sessionId) {
@@ -163,7 +180,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         }
     }, async (req, reply) => {
         const { oldPassword, newPassword, retypeNewPassword } = req.body as any;
-        const userId = req.auth.user?.id;
+        const userId = req.auth.user?.id || (req.user as any)!.id;
         const user = await fastify.userModel.findById(userId as string);
         if (!user) {
             return reply.status(404).send({ error: "User not found" });
@@ -182,7 +199,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.status(400).send({ error: "Mật khẩu mới không khớp" });
         }
         const passwordValidation = isPasswordStrong(newPassword);
-        console.log(passwordValidation);
+
         if (passwordValidation.score < 3) {
             return reply.code(400).send({
                 error: "Mật khẩu mới quá yếu",
@@ -192,10 +209,22 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         user.password_hash = await hashPassword(newPassword);
-        await fastify.userModel.updateById(user._id, user);
+        await fastify.userModel.updateById(user._id!, user);
 
         return reply.send({ message: "Mật khẩu đã được thay đổi thành công" });
-    })
+    });
+
+    fastify.post('/auth/check-availability', {
+        schema: {
+            body: registerUserBodySchema.pick({
+                emailOrPhone: true
+            })
+        }
+    }, async (request, reply) => {
+        const { emailOrPhone } = request.body as any;
+        const user = await userModel.existsByEmailOrPhone(emailOrPhone);
+        return reply.send({ available: !user });
+    });
 };
 
 export default authRoutes;

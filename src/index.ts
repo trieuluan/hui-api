@@ -13,6 +13,11 @@ import {jsonSchemaTransform, serializerCompiler, validatorCompiler,} from 'fasti
 import {z} from "zod";
 import {patchSchemaDates} from "@/utils/zodSwaggerPatch";
 import {registerZodErrorHandler} from "@/plugins/errorHandler";
+import groupRoutes from "@/routes/groups";
+import fakerRoutes from "@/routes/faker";
+import fastifyJwt from "@fastify/jwt";
+import groupMemberRoutes from "@/routes/groupsMembers";
+import fastifyCors from "@fastify/cors";
 
 const env = process.env.NODE_ENV || "development";
 dotenv.config({ path: `.env.${env}` });
@@ -42,6 +47,16 @@ fastify.register(swagger, {
             description: 'API quản lý hụi - Fastify + Zod',
             version: '1.0.0'
         },
+        components: {
+            securitySchemes: {
+                bearerAuth: {
+                    type: 'http',
+                    scheme: 'bearer',
+                    description: 'Bearer token authentication'
+                }
+            }
+        },
+        security: [{ bearerAuth: [] }]
     },
     transform: ({schema, url}) => {
         if (schema?.body instanceof z.ZodType || (schema?.response && (schema.response as Record<string, unknown>)['200'] instanceof z.ZodType)) {
@@ -61,6 +76,13 @@ fastify.register(swaggerUI, {
     },
 });
 
+fastify.register(fastifyCors, {
+    origin: '*', // Allow all origins
+});
+
+fastify.register(fastifyJwt, {
+    secret: process.env.JWT_SECRET || 'supersecret',
+});
 // Register fastify cookie for session management
 fastify.register(fastifyCookie);
 fastify.addHook("preHandler", async (request) => {
@@ -83,12 +105,18 @@ declare module "fastify" {
 }
 // Register MongoDB plugin
 fastify.register(mongoPlugin);
+// Register Faker plugin
+fastify.register(fakerRoutes);
 // Register user routes
 fastify.register(userRoutes);
 // Register lucia authentication
 fastify.register(authRoutes);
 // Register friendship routes
 fastify.register(friendshipRoutes);
+// Register Hui routes
+fastify.register(groupRoutes);
+// Register Hui member routes
+fastify.register(groupMemberRoutes);
 
 // Start server
 const start = async () => {

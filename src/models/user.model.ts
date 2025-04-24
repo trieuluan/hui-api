@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
-import { User } from "@/types/user";
 import {ObjectId} from "mongodb";
+import {User} from "@/schemas/user.schema";
 
 export class UserModel {
     private fi: FastifyInstance;

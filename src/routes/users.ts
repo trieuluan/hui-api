@@ -1,6 +1,5 @@
 import { FastifyPluginAsync } from 'fastify';
-import { User } from '@/types/user';
-import {userBodySchema} from "@/schemas/user.schema";
+import {User, userCreateSchema, userSchema} from "@/schemas/user.schema";
 
 const userRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.get('/users', async (request, reply) => {
@@ -14,9 +13,9 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.post<{ Body: User }>('/users', {
         schema: {
             description: 'Create a new user',
-            body: userBodySchema,
+            body: userCreateSchema,
             response: {
-                201: userBodySchema,
+                201: userSchema,
             }
         }
     }, async (request, reply) => {

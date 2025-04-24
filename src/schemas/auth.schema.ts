@@ -1,10 +1,19 @@
 import { z } from 'zod';
-import {userBodySchema} from "@/schemas/user.schema";
+import {userSchema} from "@/schemas/user.schema";
+import libphonenumber from "google-libphonenumber";
+
+const phoneUtil = libphonenumber.PhoneNumberUtil.getInstance();
 
 export const registerUserBodySchema = z.object({
     emailOrPhone: z.union([
-        z.string().email(),
-        z.string().regex(/^\+?[1-9]\d{1,14}$/, "Số điện thoại không hợp lệ")
+        z.string().email({ message: 'Email hoặc số điện thoại không hợp lệ' }),
+        z.string().refine(value => {
+            if (value.match(/^\+?[1-9]\d{1,14}$/)) {
+                const phoneNumber = phoneUtil.parse(value);
+                return phoneUtil.isValidNumber(phoneNumber);
+            }
+            return false
+        }, { message: 'Email hoặc số điện thoại không hợp lệ' })
     ]),
     password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự"),
     retypePassword: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự"),
@@ -13,7 +22,7 @@ export const registerUserBodySchema = z.object({
 
 export const registerUserResponseSchema = z.object({
     message: z.string(),
-    user: userBodySchema,
+    user: userSchema,
     session_id: z.string()
 }).strict();
 
@@ -23,12 +32,9 @@ export const changePasswordUserBodySchema = z.object({
     retypeNewPassword: z.string().min(6, "Mật khẩu xác nhận không được để trống")
 }).strict();
 
-export const loginBodySchema = z.object({
-    emailOrPhone: z.union([
-        z.string().email('Email hoặc số điện thoại không hợp lệ'),
-        z.string().regex(/^\+?[1-9]\d{1,14}$/, 'Email hoặc số điện thoại không hợp lệ')
-    ]),
-    password: z.string().min(6, "Mật khẩu không được để trống")
+export const loginBodySchema = registerUserBodySchema.pick({
+    emailOrPhone: true,
+    password: true
 }).strict();
 
 export type RegisterUserBody = z.infer<typeof registerUserBodySchema>;
