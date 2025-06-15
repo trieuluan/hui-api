@@ -1,11 +1,12 @@
-import { FastifyInstance, FastifyError } from 'fastify';
+import {FastifyError, FastifyPluginAsync} from 'fastify';
 import { ZodError, ZodIssue } from 'zod';
+import fp from "fastify-plugin";
 
 /**
  * Đăng ký trình xử lý lỗi toàn cục cho Fastify, đặc biệt là ZodError.
  */
-export function registerZodErrorHandler(app: FastifyInstance) {
-    app.setErrorHandler((err: FastifyError | any, req, reply) => {
+const registerZodErrorHandler: FastifyPluginAsync = fp(async (fastify) => {
+    fastify.setErrorHandler((err: FastifyError | any, req, reply) => {
         // 1. Nếu là lỗi validate Zod
         if (err instanceof ZodError) {
             const issues = (err.issues as ZodIssue[]).map((e) => ({
@@ -21,10 +22,12 @@ export function registerZodErrorHandler(app: FastifyInstance) {
 
         // 2. Nếu là lỗi Fastify validation (JSON Schema)
         if (err.validation && Array.isArray(err.validation)) {
-            const issues = err.validation.map((v: any) => ({
-                field: v.instancePath?.replace(/^\//, '') || v.params?.missingProperty || 'unknown',
-                message: v.message || 'Invalid value',
-            }));
+            const issues = err.validation.map((v: any) => {
+                return {
+                    field: v.instancePath?.replace(/^\//, '') || v.params?.missingProperty || 'unknown',
+                    message: req.t?.(v.message, { defaultValue: v.message }) || 'Invalid value',
+                };
+            });
 
             return reply.status(400).send({
                 error: 'Validation failed',
@@ -38,4 +41,6 @@ export function registerZodErrorHandler(app: FastifyInstance) {
             error: 'Internal Server Error',
         });
     });
-}
+});
+
+export default registerZodErrorHandler;

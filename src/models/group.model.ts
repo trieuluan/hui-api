@@ -22,11 +22,19 @@ export class GroupModel {
     }
 
     async listByOwner(ownerId: string): Promise<Group[]> {
-        return await this.collection().find({ ownerId }).toArray() as Group[];
+        return await this.collection().find(
+            {
+                ownerId: new ObjectId(ownerId),
+                $or: [
+                    { deletedAt: { $exists: false } },
+                    { deletedAt: null }
+                ]
+            }
+        ).sort({ createdAt: -1 }).toArray() as Group[];
     }
 
     createGroup = async (group: Group): Promise<Group> => {
-        const result = await this.collection().insertOne({ ...group, _id: group._id ? new ObjectId(group._id) : undefined });
+        const result = await this.collection().insertOne(group);
         return { _id: result.insertedId, ...group };
     }
 
@@ -52,6 +60,18 @@ export class GroupModel {
 
     async deleteById(id: string | ObjectId) {
         return this.collection().deleteOne({ _id: new ObjectId(id) });
+    }
+
+    async softDeleteById(id: string | ObjectId, deletedBy?: ObjectId) {
+        return this.collection().updateOne(
+            { _id: new ObjectId(id) },
+            {
+                $set: {
+                    deletedAt: new Date(),
+                    deletedBy: deletedBy,
+                }
+            }
+        );
     }
 }
 

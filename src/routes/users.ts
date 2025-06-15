@@ -7,7 +7,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
             const users = await fastify.userModel.list();
             reply.send(users);
         } catch (error) {
-            reply.status(500).send({ error: 'Failed to fetch users' });
+            reply.status(500).send({ error: request.t('fetch_users_fail') });
         }
     });
     fastify.post<{ Body: User }>('/users', {
@@ -23,7 +23,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
             const newUser = await fastify.userModel.createUser(request.body);
             reply.status(201).send(newUser);
         } catch (error) {
-            reply.status(500).send({ error: 'Failed to create user' });
+            reply.status(500).send({ error: request.t('user_create_fail') });
         }
     });
 };

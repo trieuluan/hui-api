@@ -12,12 +12,14 @@ import swaggerUI from '@fastify/swagger-ui';
 import {jsonSchemaTransform, serializerCompiler, validatorCompiler,} from 'fastify-type-provider-zod';
 import {z} from "zod";
 import {patchSchemaDates} from "@/utils/zodSwaggerPatch";
-import {registerZodErrorHandler} from "@/plugins/errorHandler";
 import groupRoutes from "@/routes/groups";
 import fakerRoutes from "@/routes/faker";
 import fastifyJwt from "@fastify/jwt";
 import groupMemberRoutes from "@/routes/groupsMembers";
 import fastifyCors from "@fastify/cors";
+import i18nPlugin from "@/plugins/i18n.plugin";
+import registerZodErrorHandler from "@/plugins/errorHandler";
+import mongoSchemaInit from "@/plugins/mongo-schema-init";
 
 const env = process.env.NODE_ENV || "development";
 dotenv.config({ path: `.env.${env}` });
@@ -33,11 +35,16 @@ const fastify = Fastify({
         }
     },
 });
-registerZodErrorHandler(fastify);
+await fastify.register(i18nPlugin);
+await fastify.register(registerZodErrorHandler);
 
 fastify.setValidatorCompiler(validatorCompiler);
 fastify.setSerializerCompiler(serializerCompiler);
 
+fastify.register(fastifyCors, {
+    origin: '*', // Allow all origins
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+});
 
 // Register Swagger for API documentation
 fastify.register(swagger, {
@@ -76,10 +83,6 @@ fastify.register(swaggerUI, {
     },
 });
 
-fastify.register(fastifyCors, {
-    origin: '*', // Allow all origins
-});
-
 fastify.register(fastifyJwt, {
     secret: process.env.JWT_SECRET || 'supersecret',
 });
@@ -105,6 +108,8 @@ declare module "fastify" {
 }
 // Register MongoDB plugin
 fastify.register(mongoPlugin);
+// Regiser MongoDB schema init plugin
+fastify.register(mongoSchemaInit);
 // Register Faker plugin
 fastify.register(fakerRoutes);
 // Register user routes

@@ -9,19 +9,21 @@ const baseGroupSchema = z.object({
     _id: z.instanceof(ObjectId).optional(),
 
     name: z.string()
-        .min(1, 'Tên dây hụi không được để trống')
-        .max(100, 'Tên dây hụi không được vượt quá 100 ký tự'),
+        .min(1, 'group_name_required')
+        .max(100, 'group_name_too_long'),
 
-    description: z.string().max(500).optional(),
+    description: z.string().max(500).nullable().optional(),
+
+    code: z.string().regex(/^HF-\d{3,}$/, 'group_code_invalid').optional(),
 
     ownerId: z.instanceof(ObjectId), // Chủ hụi
 
-    amountPerCycle: z.number().positive('Số tiền mỗi kỳ phải > 0'),
+    amountPerCycle: z.number().positive('amount_per_cycle_positive'),
 
-    cycleDuration: z.number().int().positive(),
+    cycleDuration: z.number().int().positive('cycle_duration_positive'),
     cycleUnit: cycleUnitEnum.default('week'),
 
-    totalCycles: z.number().int().positive('Tổng số kỳ phải > 0'),
+    totalCycles: z.number().int().positive('total_cycles_positive'),
 
     maxMembers: z.number().int().positive().optional(),
     // Gợi ý: bạn có thể tính `maxMembers = totalCycles` mặc định, hoặc để frontend nhập
@@ -35,8 +37,11 @@ const baseGroupSchema = z.object({
 
     status: groupStatusEnum.default('inactive'),
 
-    createdAt: z.date().default(() => new Date()),
-    updatedAt: z.date().default(() => new Date()),
+    createdAt: z.date().default(() => new Date()).optional(),
+    createdBy: z.instanceof(ObjectId).optional(),
+    updatedAt: z.date().default(() => new Date()).optional(),
+    deletedAt: z.date().optional(),
+    deletedBy: z.instanceof(ObjectId).optional(),
 });
 
 export const groupSchema = baseGroupSchema.strict();
@@ -48,20 +53,23 @@ const withMaxMembersConstraint = <T extends z.ZodTypeAny>(schema: T) =>
     schema.refine(
         (data: any) => data.maxMembers === undefined || data?.maxMembers <= data?.totalCycles,
         {
-            message: 'maxMembers không được vượt quá totalCycles',
+            message: 'member_count_exceeds_total_cycles',
             path: ['maxMembers'],
         }
     ).refine(data => {
         if (data.isPrivate) return !!data.password;
         return true;
     }, {
-        message: "Group riêng tư cần có password",
+        message: 'private_group_requires_password',
         path: ["password"],
     });
 
 export const groupCreateBodySchema = withMaxMembersConstraint(
     baseGroupSchema.omit({
         _id: true,
+        ownerId: true,
+        createdAt: true,
+        updatedAt: true,
     }).strict()
 );
 
@@ -69,9 +77,9 @@ export const groupUpdateBodySchema = withMaxMembersConstraint(
     baseGroupSchema.partial()
 );
 
-export const groupJoinParamSchema = z.object({
+export const groupIdParamSchema = z.object({
     id: z.string().refine((val) => ObjectId.isValid(val), {
-        message: 'Invalid group ID',
+        message: 'invalid_group_id',
     })
 }).strict();
 
@@ -83,5 +91,5 @@ export type Group = z.infer<typeof groupSchema>;
 export type ListGroup = z.infer<typeof listGroupSchema>;
 export type GroupCreateBody = z.infer<typeof groupCreateBodySchema>;
 export type GroupUpdateBody = z.infer<typeof groupUpdateBodySchema>;
-export type GroupJoinParam = z.infer<typeof groupJoinParamSchema>;
+export type GroupIdParam = z.infer<typeof groupIdParamSchema>;
 export type GroupJoinBody = z.infer<typeof groupJoinBodySchema>;

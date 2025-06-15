@@ -1,14 +1,13 @@
 import {FastifyPluginAsync} from "fastify";
 import {
     Group,
-    groupCreateBodySchema, GroupJoinBody, groupJoinBodySchema, GroupJoinParam, groupJoinParamSchema,
+    groupCreateBodySchema, GroupIdParam, groupIdParamSchema, GroupJoinBody, groupJoinBodySchema,
     groupSchema,
     groupUpdateBodySchema,
     listGroupSchema
 } from "@/schemas/group.schema";
 import {authMiddleware} from "@/middlewares/authMiddleware";
-import {ObjectId} from "mongodb";
-import {FastifyJWT} from "@fastify/jwt";
+import {MongoServerError, ObjectId} from "mongodb";
 import {groupMemberListSchema} from "@/schemas/groupMember.schema";
 
 const groupRoutes: FastifyPluginAsync = async (fastify) => {
@@ -23,12 +22,11 @@ const groupRoutes: FastifyPluginAsync = async (fastify) => {
         }
     }, async (request, reply) => {
         try {
-            const { auth } = request;
-            const groups = await fastify.groupModel.listByOwner(auth.user!.id);
+            const userId = request.auth.user?.id || (request.user as any)!.id;
+            const groups = await fastify.groupModel.listByOwner(userId);
             reply.send(groups);
         } catch (error) {
-            console.log(error);
-            reply.status(500).send({ error: 'Failed to fetch groups' });
+            reply.status(500).send({ error: request.t('groups_fetch_fail') });
         }
     });
 
@@ -41,11 +39,18 @@ const groupRoutes: FastifyPluginAsync = async (fastify) => {
         }
     }, async (request, reply) => {
         try {
+            const userId = new ObjectId(request.auth?.user?.id || (request.user as any)?.id); // 👈 lấy từ session hoặc token
             const body = request.body as Group;
+            body.ownerId = userId;
+            body.code = await fastify.counterModel.generateUniqueGroupCode();
+            body.createdAt = new Date();
             const newGroup = await fastify.groupModel.createGroup(body);
             reply.status(201).send(newGroup);
-        } catch (error) {
-            reply.status(500).send({ error: 'Failed to create group' });
+        } catch (error: unknown) {
+            if (error instanceof MongoServerError) {
+                console.log(error.errInfo?.details.schemaRulesNotSatisfied[0]);
+            }
+            reply.status(500).send({ error: request.t('group_create_fail') });
         }
     });
 
@@ -63,47 +68,59 @@ const groupRoutes: FastifyPluginAsync = async (fastify) => {
             const updatedGroup = await fastify.groupModel.updateById(id, body);
             reply.status(200).send(updatedGroup);
         } catch (error) {
-            reply.status(500).send({ error: 'Failed to update group' });
+            reply.status(500).send({ error: request.t('group_update_fail') });
         }
     });
 
     fastify.post('/groups/:id/join', {
         schema: {
-            params: groupJoinParamSchema,
+            params: groupIdParamSchema,
             body: groupJoinBodySchema,
         }
     }, async (request, reply) => {
         const userId = new ObjectId(request.auth.user!.id || (request.user as any)!.id); // 👈 lấy từ session hoặc token
-        const groupId = new ObjectId((request.params as GroupJoinParam).id);
+        const groupId = new ObjectId((request.params as GroupIdParam).id);
         const { slots } = request.body as GroupJoinBody;
         const group = await fastify.groupModel.findById(groupId);
-        if (!group) return reply.code(404).send({ message: 'Không tìm thấy dây hụi' });
+        if (!group) return reply.code(404).send({ message: request.t('group_not_found') });
         const totalCycles = group.totalCycles;
         const totalRegistered = await fastify.groupMemberModel.groupSlots(groupId.toString());
         if (totalRegistered! + slots > totalCycles) {
             return reply.code(400).send({
-                message: `Tổng suất (${totalRegistered! + slots}) vượt quá ${totalCycles}`,
+                message: request.t('total_slots_exceed', { total: totalRegistered! + slots, limit: totalCycles }),
             });
         }
         const result = await fastify.groupMemberModel.joinGroup(groupId, userId, slots);
 
         reply.status(200).send({
-            message: 'Tham gia thành công. Số slot đã đăng ký: ' + result,
+            message: request.t('join_success', { slots: result }),
         });
     });
 
     fastify.get('/groups/:id/members', {
         schema: {
-            params: groupJoinParamSchema,
+            params: groupIdParamSchema,
             response: {
                 200: groupMemberListSchema
             }
         }
     }, async (request, reply) => {
-        const groupId = new ObjectId((request.params as GroupJoinParam).id);
+        const groupId = new ObjectId((request.params as GroupIdParam).id);
         const members = await fastify.groupMemberModel.getMembers(groupId);
-        if (!members) return reply.code(404).send({ message: 'Không tìm thấy thành viên nào' });
+        if (!members) return reply.code(404).send({ message: request.t('group_members_not_found') });
         reply.status(200).send(members);
+    });
+
+    fastify.delete('/groups/:id', {
+        schema: {
+            params: groupIdParamSchema,
+        }
+    }, async (request, reply) => {
+        const userId = new ObjectId(request.auth?.user?.id || (request.user as any)!.id); // 👈 lấy từ session hoặc token
+        const groupId = new ObjectId((request.params as GroupIdParam).id);
+        const result = await fastify.groupModel.softDeleteById(groupId, userId);
+        if (!result) return reply.code(404).send({ message: request.t('group_not_found') });
+        reply.status(200).send({ success: true, message: request.t('group_delete_success') });
     });
 };
 

@@ -17,7 +17,7 @@ export const userSchema = z.object({
             gender: z.enum(["male", "female", "other"]),
             address: z.string().min(1, "Địa chỉ không được để trống"),
         })
-        .strict(), // = additionalProperties: false
+        .strict().optional(), // = additionalProperties: false
     kyc: z
         .object({
             status: z.enum(["pending", "verified", "rejected"]),
@@ -28,7 +28,8 @@ export const userSchema = z.object({
             selfie_url: z.string().url().optional(),
             verified_at: z.string().datetime().optional(),
         })
-        .strict(),
+        .strict().optional(),
+    status: z.enum(["active", "inactive"]).optional(),
     created_at: z.string().datetime().optional(),
     updated_at: z.string().datetime().optional(),
 }).strict(); // Gốc cũng chặn additionalProperties
