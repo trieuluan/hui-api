@@ -22,6 +22,7 @@ const baseGroupSchema = z.object({
 
     cycleDuration: z.number().int().positive('cycle_duration_positive'),
     cycleUnit: cycleUnitEnum.default('week'),
+    cycleTime: z.string().regex(/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/, 'cycle_time_invalid').optional(),
 
     totalCycles: z.number().int().positive('total_cycles_positive'),
 
@@ -85,6 +86,11 @@ export const groupIdParamSchema = z.object({
 
 export const groupJoinBodySchema = z.object({
     slots: z.number().int().min(1),
+}).strict();
+
+export const groupDeleteResponseSchema = z.object({
+    message: z.string().optional(),
+    success: z.boolean().default(true),
 }).strict();
 
 export type Group = z.infer<typeof groupSchema>;

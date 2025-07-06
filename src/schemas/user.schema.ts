@@ -1,5 +1,11 @@
 import { z } from "zod";
 import {ObjectId} from "mongodb";
+import { Permission, RoleName } from "./role.schema";
+
+export enum UserStatus {
+    ACTIVE = "active",
+    INACTIVE = "inactive",
+}
 
 export const userSchema = z.object({
     _id: z.instanceof(ObjectId).optional(),
@@ -10,7 +16,7 @@ export const userSchema = z.object({
         .regex(/^\+?[1-9]\d{1,14}$/, "Số điện thoại không hợp lệ")
         .optional(),
     password_hash: z.string().min(8, "Mật khẩu phải có ít nhất 8 ký tự"),
-    role: z.enum(["chuhui", "huivien"]),
+    role: z.nativeEnum(RoleName),
     profile: z
         .object({
             dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("Ngày sinh phải theo định dạng YYYY-MM-DD"),
@@ -29,7 +35,8 @@ export const userSchema = z.object({
             verified_at: z.string().datetime().optional(),
         })
         .strict().optional(),
-    status: z.enum(["active", "inactive"]).optional(),
+    permissions: z.array(z.nativeEnum(Permission)).optional(),
+    status: z.nativeEnum(UserStatus),
     created_at: z.string().datetime().optional(),
     updated_at: z.string().datetime().optional(),
 }).strict(); // Gốc cũng chặn additionalProperties

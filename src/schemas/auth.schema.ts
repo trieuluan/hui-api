@@ -26,7 +26,6 @@ export const registerUserResponseSchema = z.object({
     user: userSchema.omit({
         password_hash: true
     }),
-    session_id: z.string(),
     token: z.string(),
     success: z.boolean().optional(),
 }).strict();
@@ -47,7 +46,6 @@ export const loginResponseSchema = z.object({
     user: userSchema.omit({
         password_hash: true
     }),
-    session_id: z.string(),
     token: z.string(),
     success: z.boolean().optional(),
 }).strict();

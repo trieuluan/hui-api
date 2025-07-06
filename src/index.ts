@@ -13,16 +13,15 @@ import {jsonSchemaTransform, serializerCompiler, validatorCompiler,} from 'fasti
 import {z} from "zod";
 import {patchSchemaDates} from "@/utils/zodSwaggerPatch";
 import groupRoutes from "@/routes/groups";
-import fakerRoutes from "@/routes/faker";
 import fastifyJwt from "@fastify/jwt";
 import groupMemberRoutes from "@/routes/groupsMembers";
 import fastifyCors from "@fastify/cors";
 import i18nPlugin from "@/plugins/i18n.plugin";
 import registerZodErrorHandler from "@/plugins/errorHandler";
 import mongoSchemaInit from "@/plugins/mongo-schema-init";
+import { loadEnv } from './utils/load-env';
 
-const env = process.env.NODE_ENV || "development";
-dotenv.config({ path: `.env.${env}` });
+loadEnv(process.env.NODE_ENV);
 
 const fastify = Fastify({
     logger: {
@@ -96,7 +95,9 @@ fastify.addHook("preHandler", async (request) => {
     }
 
     const { user, session } = await lucia.validateSession(sessionId);
-    request.auth = { user, session };
+    const permissions = session?.permissions || [];
+    const userWithPermissions = { ...user, permissions } as User;
+    request.auth = { user: userWithPermissions, session };
 });
 declare module "fastify" {
     interface FastifyRequest {
@@ -110,8 +111,6 @@ declare module "fastify" {
 fastify.register(mongoPlugin);
 // Regiser MongoDB schema init plugin
 fastify.register(mongoSchemaInit);
-// Register Faker plugin
-fastify.register(fakerRoutes);
 // Register user routes
 fastify.register(userRoutes);
 // Register lucia authentication
@@ -126,7 +125,7 @@ fastify.register(groupMemberRoutes);
 // Start server
 const start = async () => {
     try {
-        await fastify.listen({ port: Number(process.env.PORT) || 3000 });
+        await fastify.listen({ port: Number(process.env.PORT) || 3000, host: '0.0.0.0' });
         fastify.log.info(`Server is running at http://localhost:${process.env.PORT}`);
     } catch (err) {
         fastify.log.error(err);

@@ -10,7 +10,9 @@ import {lucia} from "@/utils/lucia";
 import {authMiddleware} from "@/middlewares/authMiddleware";
 import {unAuthMiddleware} from "@/middlewares/unAuthMiddleware";
 import {parseEmailOrPhone} from "@/utils/parseEmailOrPhone";
-import {User} from "@/schemas/user.schema";
+import {User, UserStatus} from "@/schemas/user.schema";
+import { RoleName } from "@/schemas/role.schema";
+import { permission } from "process";
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
     const userModel = fastify.userModel;
@@ -52,11 +54,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         const paramsUser: User = {
             password_hash: hashedPassword,
             full_name: fullName,
-            role: 'chuhui', // Default role
+            role: RoleName.CHU_HUI, // Default role
             kyc: {
                 status: 'pending', // Default KYC status
             },
-            status: 'inactive',
+            status: UserStatus.ACTIVE,
             email
         }
 
@@ -70,7 +72,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         const user = await fastify.userModel.createUser(paramsUser);
         const { password_hash, ...safeUser } = user || {};
 
-        const session = await lucia.createSession(user._id?.toString() as string, {});
+        const session = await lucia.createSession(user._id!.toString(), { permissions: user.permissions || [] });
         const sessionCookie = lucia.createSessionCookie(session.id);
         reply.setCookie(
             sessionCookie.name,
@@ -83,13 +85,13 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             phone: user.phone,
             full_name: user.full_name,
             role: user.role,
+            permissions: user.permissions || [],
         });
 
         reply.send({
             success: true,
             message: request.t('user_register_success'),
             user: safeUser,
-            session_id: session.id,
             token: token,
         });
     });
@@ -112,9 +114,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         if (!match) {
             return reply.status(401).send({ error: request.t('password_not_right') });
         }
-        const session = await lucia.createSession(user._id!.toString(), {});
+        const session = await lucia.createSession(user._id!.toString(), { permissions: user.permissions || [] });
         const sessionCookie = lucia.createSessionCookie(session.id);
-
         reply.setCookie(
             sessionCookie.name,
             sessionCookie.value,
@@ -132,7 +133,6 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         reply.send({
             message: request.t('user_login_success'),
             user: safeUser,
-            session_id: sessionCookie.value,
             token,
             success: true,
         });

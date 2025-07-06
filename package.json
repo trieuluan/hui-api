@@ -5,7 +5,14 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "tsx watch src/index.ts"
+    "dev": "NODE_ENV=development tsx watch src/index.ts",
+    "predeploy": "npm run build",
+    "deploy": "fly deploy --remote-only",
+    "build": "vite build --mode production",
+    "start": "NODE_ENV=production node dist/index.js",
+    "lint": "eslint . --ext .ts,.js",
+    "format": "prettier --write .",
+    "migrate": "node dist/scripts/migrate.js"
   },
   "keywords": [],
   "author": "",
@@ -42,7 +49,10 @@
     "@types/i18next": "^13.0.0",
     "@types/node": "^22.14.0",
     "@types/zxcvbn": "^4.4.5",
+    "builtin-modules": "^5.0.0",
     "tsx": "^4.19.3",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0",
+    "vite-tsconfig-paths": "^5.1.4"
   }
 }

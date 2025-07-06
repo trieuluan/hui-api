@@ -16,6 +16,7 @@
   "users_fetch_fail": "Failed to fetch user list",
   "user_create_fail": "Failed to create user",
   "groups_fetch_fail": "Failed to fetch group list",
+  "group_fetch_fail": "Failed to fetch group information",
   "group_create_fail": "Failed to create group",
   "group_update_fail": "Failed to update group",
   "group_not_found": "Group not found",
@@ -29,7 +30,8 @@
       "This is a very common password": "This is a very common password.",
       "This is similar to a commonly used password": "This is similar to a commonly used password.",
       "A word by itself is easy to guess": "A word by itself is easy to guess.",
-      "Names and surnames by themselves are easy to guess": "Names and surnames by themselves are easy to guess."
+      "Names and surnames by themselves are easy to guess": "Names and surnames by themselves are easy to guess.",
+      "Short keyboard patterns are easy to guess": "Short keyboard patterns are easy to guess."
     },
     "suggestions": {
       "Add another word or two. Uncommon words are better.": "Add another word or two. Uncommon words are better.",

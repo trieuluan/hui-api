@@ -55,7 +55,7 @@ A robust RESTful API for managing "Hụi" - a rotating savings and credit associ
 4. Configure environment variables in the created files:
    ```
    PORT=3000
-   MONGODB_URI=mongodb://localhost:27017/hui-api
+   MONGODB_URI=mongodb://localhost:27017/hui
    JWT_SECRET=your_jwt_secret
    ```
 

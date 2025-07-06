@@ -2,6 +2,10 @@ import { lucia } from "@/utils/lucia";
 import { FastifyReply, FastifyRequest } from "fastify";
 
 export const authMiddleware = async (request: FastifyRequest, reply: FastifyReply) => {
+    // Nếu đã có request.auth.user từ hook, chỉ kiểm tra
+    if (request.auth && request.auth.user) {
+        return;
+    }
     const sessionId = lucia.readSessionCookie(request.headers.cookie ?? "");
     let token;
     try {
@@ -17,7 +21,5 @@ export const authMiddleware = async (request: FastifyRequest, reply: FastifyRepl
         if (!user || !session) {
             return reply.status(401).send({ message: "Unauthenticated" });
         }
-
-        request.auth = { user, session };
     }
 };

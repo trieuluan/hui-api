@@ -13,6 +13,12 @@ export class UserModel {
         return this.fi.mongo.db!.collection("users");
     }
 
+    private async mapPermissions(user: User): Promise<User | null> {
+        if (!user) return null;
+        const role = await this.fi.roleModel.findByName(user.role);
+        return { ...user, permissions: role?.permissions || [] };
+    }
+
     getUserCollection = () => {
         return this.collection();
     }
@@ -27,7 +33,7 @@ export class UserModel {
         if (!result) {
             return null;
         }
-        return result as User;
+        return this.mapPermissions(result as User);
     }
 
     async findByEmail(email: string): Promise<User | null> {
@@ -35,7 +41,7 @@ export class UserModel {
         if (!result) {
             return null;
         }
-        return result as User;
+        return this.mapPermissions(result as User);
     }
 
     async findByPhone(phone: string): Promise<User | null> {
@@ -43,7 +49,7 @@ export class UserModel {
         if (!result) {
             return null;
         }
-        return result as User;
+        return this.mapPermissions(result as User);
     }
 
     async updateById(id: string | ObjectId, data: Partial<User>) {
@@ -73,7 +79,7 @@ export class UserModel {
                 { phone: emailOrPhone }
             ]
         });
-        return user as User | null;
+        return this.mapPermissions(user as User);
     }
 }
 

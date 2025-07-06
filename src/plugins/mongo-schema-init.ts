@@ -1,7 +1,8 @@
 import {FastifyPluginAsync} from "fastify";
 import {groupSchema} from "@/schemas/group.schema";
-import {userCreateSchema} from "@/schemas/user.schema";
+import {userSchema} from "@/schemas/user.schema";
 import {patchObjectIdFieldsRecursive, zodToMongoJsonSchema} from "@/utils/zod-to-mongo-schema";
+import { roleSchema } from "@/schemas/role.schema";
 
 const mongoSchemaInit: FastifyPluginAsync = async (fastify) => {
     const db = fastify.mongo.db!;
@@ -46,8 +47,16 @@ const mongoSchemaInit: FastifyPluginAsync = async (fastify) => {
         { key: { createdAt: -1 }, name: 'createdAt_index' },
     ]);
 
-    const userJsonSchema = zodToMongoJsonSchema(userCreateSchema);
+    const userJsonSchema = zodToMongoJsonSchema(userSchema);
+    patchObjectIdFieldsRecursive(userJsonSchema, ['_id']);
     await ensureCollection('users', userJsonSchema);
+
+    const rolesJsonSchema = zodToMongoJsonSchema(roleSchema);
+    patchObjectIdFieldsRecursive(rolesJsonSchema, ['_id']);
+    await ensureCollection('roles', rolesJsonSchema);
+    await db.collection('roles').createIndexes([
+        { key: { name: 1 }, name: 'name_unique_index', unique: true },
+    ]);
 }
 
 export default mongoSchemaInit;

@@ -3,7 +3,7 @@
     "module": "ESNext",
     "target": "ES2020",
     "outDir": "./dist",
-    "rootDir": "src",
+    "rootDir": "./src",
     "strict": true,
     "moduleResolution": "bundler",
     "moduleDetection": "force",
@@ -14,9 +14,10 @@
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"],
-    },
+    }
   },
   "ts-node": {
     "esm": true
-  }
+  },
+  "include": ["src"]
 }

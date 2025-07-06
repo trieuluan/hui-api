@@ -1,7 +1,7 @@
 import {FastifyPluginAsync} from "fastify";
 import {
     Group,
-    groupCreateBodySchema, GroupIdParam, groupIdParamSchema, GroupJoinBody, groupJoinBodySchema,
+    groupCreateBodySchema, groupDeleteResponseSchema, GroupIdParam, groupIdParamSchema, GroupJoinBody, groupJoinBodySchema,
     groupSchema,
     groupUpdateBodySchema,
     listGroupSchema
@@ -9,12 +9,15 @@ import {
 import {authMiddleware} from "@/middlewares/authMiddleware";
 import {MongoServerError, ObjectId} from "mongodb";
 import {groupMemberListSchema} from "@/schemas/groupMember.schema";
+import { authorize } from "@/middlewares/authorize";
+import { Permission } from "@/schemas/role.schema";
 
 const groupRoutes: FastifyPluginAsync = async (fastify) => {
     // Middleware to check authentication
     fastify.addHook('onRequest', authMiddleware);
 
     fastify.get('/groups', {
+        preHandler: authorize([Permission.GROUP_VIEW]),
         schema: {
             response: {
                 200: listGroupSchema
@@ -30,7 +33,27 @@ const groupRoutes: FastifyPluginAsync = async (fastify) => {
         }
     });
 
+    fastify.get('/groups/:id', {
+        preHandler: authorize([Permission.GROUP_VIEW]),
+        schema: {
+            params: groupIdParamSchema,
+            response: {
+                200: groupSchema
+            }
+        }
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params as GroupIdParam;
+            const group = await fastify.groupModel.findById(id);
+            if (!group) return reply.code(404).send({ message: request.t('group_not_found') });
+            reply.send(group);
+        } catch (error) {
+            reply.status(500).send({ error: request.t('group_fetch_fail') });
+        }
+    });
+
     fastify.post('/groups', {
+        preHandler: authorize([Permission.GROUP_CREATE]),
         schema: {
             body: groupCreateBodySchema,
             response: {
@@ -55,6 +78,7 @@ const groupRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     fastify.patch('/groups/:id', {
+        preHandler: authorize([Permission.GROUP_UPDATE]),
         schema: {
             body: groupUpdateBodySchema,
             response: {
@@ -73,6 +97,7 @@ const groupRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     fastify.post('/groups/:id/join', {
+        preHandler: authorize([Permission.GROUP_MEMBER_ADD]),
         schema: {
             params: groupIdParamSchema,
             body: groupJoinBodySchema,
@@ -98,6 +123,7 @@ const groupRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     fastify.get('/groups/:id/members', {
+        preHandler: authorize([Permission.GROUP_MEMBER_VIEW]),
         schema: {
             params: groupIdParamSchema,
             response: {
@@ -112,8 +138,12 @@ const groupRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     fastify.delete('/groups/:id', {
+        preHandler: authorize([Permission.GROUP_DELETE]),
         schema: {
             params: groupIdParamSchema,
+            response: {
+                200: groupDeleteResponseSchema
+            }
         }
     }, async (request, reply) => {
         const userId = new ObjectId(request.auth?.user?.id || (request.user as any)!.id); // 👈 lấy từ session hoặc token
