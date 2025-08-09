@@ -12,7 +12,9 @@
     "start": "NODE_ENV=production node dist/index.js",
     "lint": "eslint . --ext .ts,.js",
     "format": "prettier --write .",
-    "migrate": "node dist/scripts/migrate.js"
+    "migrate": "node dist/scripts/migrate.js",
+    "seed:all": "tsx src/scripts/seed-all.ts",
+    "seed:check": "tsx src/scripts/check-and-seed.ts"
   },
   "keywords": [],
   "author": "",

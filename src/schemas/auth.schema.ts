@@ -50,8 +50,20 @@ export const loginResponseSchema = z.object({
     success: z.boolean().optional(),
 }).strict();
 
+export const checkPasswordBodySchema = registerUserBodySchema.pick({
+    emailOrPhone: true,
+    password: true
+}).strict();
+
+export const checkPasswordResponseSchema = z.object({
+    success: z.boolean(),
+    message: z.string(),
+}).strict();
+
 export type RegisterUserBody = z.infer<typeof registerUserBodySchema>;
 export type RegisterUserResponse = z.infer<typeof registerUserResponseSchema>;
 export type ChangePasswordUserBody = z.infer<typeof changePasswordUserBodySchema>;
 export type LoginBody = z.infer<typeof loginBodySchema>;
 export type LoginResponse = z.infer<typeof loginResponseSchema>;
+export type CheckPasswordBody = z.infer<typeof checkPasswordBodySchema>;
+export type CheckPasswordResponse = z.infer<typeof checkPasswordResponseSchema>;

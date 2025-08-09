@@ -6,6 +6,7 @@ import {GroupModel} from "@/models/group.model";
 import {GroupMemberModel} from "@/models/groupMember.model";
 import {CounterModel} from "@/models/counter.model";
 import { RoleModel } from '@/models/role.model';
+import { SettingsModel } from '@/models/settings.model';
 
 export default fp(async (fastify) => {
     fastify.register(fastifyMongodb, {
@@ -26,10 +27,7 @@ export default fp(async (fastify) => {
         fastify.decorate("groupModel", new GroupModel(fastify));
         fastify.decorate("groupMemberModel", new GroupMemberModel(fastify));
         fastify.decorate("roleModel", new RoleModel(fastify));
-        const roleModel = fastify.roleModel;
-        await roleModel.ensureDefaultRoles();
-        const counterModel = new CounterModel(fastify);
-        await counterModel.init();
-        fastify.decorate("counterModel", counterModel);
+        fastify.decorate("counterModel", new CounterModel(fastify));
+        fastify.decorate("settingsModel", new SettingsModel(fastify));
     });
 });

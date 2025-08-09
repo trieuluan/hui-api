@@ -64,11 +64,25 @@ A robust RESTful API for managing "Hụi" - a rotating savings and credit associ
 ### Development Mode
 
 ```bash
+# First time setup - seed database
+npm run seed:check
+
+# Start development server
 npm run dev
 ```
 
 The server will start on the port specified in your environment file (default: 3000).
 API documentation will be available at: http://localhost:3000/docs
+
+### Database Seeding
+
+```bash
+# Check and seed if needed (recommended)
+npm run seed:check
+
+# Force seed all data
+npm run seed:all
+```
 
 ## 📚 API Documentation
 

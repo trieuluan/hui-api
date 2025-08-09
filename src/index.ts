@@ -15,10 +15,12 @@ import {patchSchemaDates} from "@/utils/zodSwaggerPatch";
 import groupRoutes from "@/routes/groups";
 import fastifyJwt from "@fastify/jwt";
 import groupMemberRoutes from "@/routes/groupsMembers";
+import settingsRoutes from "@/routes/settings";
 import fastifyCors from "@fastify/cors";
 import i18nPlugin from "@/plugins/i18n.plugin";
 import registerZodErrorHandler from "@/plugins/errorHandler";
 import mongoSchemaInit from "@/plugins/mongo-schema-init";
+import settingsPlugin from "@/plugins/settings";
 import { loadEnv } from './utils/load-env';
 
 loadEnv(process.env.NODE_ENV);
@@ -109,8 +111,10 @@ declare module "fastify" {
 }
 // Register MongoDB plugin
 fastify.register(mongoPlugin);
-// Regiser MongoDB schema init plugin
+// Register MongoDB schema init plugin
 fastify.register(mongoSchemaInit);
+// Register settings plugin
+fastify.register(settingsPlugin);
 // Register user routes
 fastify.register(userRoutes);
 // Register lucia authentication
@@ -121,6 +125,8 @@ fastify.register(friendshipRoutes);
 fastify.register(groupRoutes);
 // Register Hui member routes
 fastify.register(groupMemberRoutes);
+// Register settings routes
+fastify.register(settingsRoutes);
 
 // Start server
 const start = async () => {

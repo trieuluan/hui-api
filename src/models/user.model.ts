@@ -25,7 +25,7 @@ export class UserModel {
 
     createUser = async (user: User): Promise<User> => {
         const result = await this.collection().insertOne(user);
-        return { _id: result.insertedId, ...user };
+        return this.mapPermissions({ ...user, _id: result.insertedId }) as Promise<User>;
     }
 
     async findById(id: string | ObjectId): Promise<User | null> {

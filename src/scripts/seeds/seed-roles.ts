@@ -1,8 +1,7 @@
-import { FastifyInstance } from "fastify";
-import { ObjectId } from "mongodb";
-import { Role, RoleName, Permission } from "@/schemas/role.schema";
+import { MongoClient } from 'mongodb';
+import { RoleName, Permission } from '../../schemas/role.schema';
 
-const DEFAULT_ROLES: Omit<Role, '_id'>[] = [
+const DEFAULT_ROLES = [
   {
     name: RoleName.SUPER_ADMIN,
     description: "Super admin toàn hệ thống",
@@ -44,46 +43,20 @@ const DEFAULT_ROLES: Omit<Role, '_id'>[] = [
   },
 ];
 
-export class RoleModel {
-  private fi: FastifyInstance;
-
-  constructor(fi: FastifyInstance) {
-    this.fi = fi;
+export async function seedRoles(client: MongoClient) {
+  const db = client.db();
+  const rolesCollection = db.collection('roles');
+  
+  console.log('🌱 Seeding roles...');
+  
+  for (const role of DEFAULT_ROLES) {
+    await rolesCollection.updateOne(
+      { name: role.name },
+      { $set: role },
+      { upsert: true }
+    );
+    console.log(`  ✅ Role "${role.name}" synced`);
   }
-
-  private collection() {
-    return this.fi.mongo.db!.collection("roles");
-  }
-
-  async ensureDefaultRoles() {
-    for (const role of DEFAULT_ROLES) {
-      await this.collection().updateOne(
-        { name: role.name },
-        { $set: role },
-        { upsert: true }
-      );
-    }
-    this.fi.log.info("✅ Synced default roles (upsert)");
-  }
-
-  async ensureInitialized() {
-    const count = await this.collection().countDocuments();
-    if (count === 0) {
-      await this.ensureDefaultRoles();
-    }
-  }
-
-  async findByName(name: RoleName): Promise<Role | null> {
-    return this.collection().findOne({ name }) as Promise<Role | null>;
-  }
-
-  async list(): Promise<Role[]> {
-    return this.collection().find().toArray() as Promise<Role[]>;
-  }
-}
-
-declare module "fastify" {
-  interface FastifyInstance {
-    roleModel: RoleModel;
-  }
-}
+  
+  console.log('✅ All roles seeded successfully');
+} 

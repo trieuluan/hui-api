@@ -25,7 +25,17 @@ export class CounterModel {
         this.fi.log.info('✅ Counter "groupCode" initialized');
     }
 
+    async ensureInitialized() {
+        const existing = await this.collection().findOne({ _id: 'groupCode' as any });
+        if (!existing) {
+            await this.init();
+        }
+    }
+
     async generateUniqueGroupCode(): Promise<string> {
+        // Ensure counter is initialized
+        await this.ensureInitialized();
+        
         const result = await this.collection().findOneAndUpdate(
             { _id: 'groupCode' },
             { $inc: { seq: 1 } },
